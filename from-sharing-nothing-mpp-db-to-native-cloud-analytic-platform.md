@@ -82,7 +82,7 @@ Vertica编录(Catalog)存储并提供对数据库元数据的访问。其他数�
 
 # 3 分片 <a id="3-sharding"></a>
 
-Vertica Eon模式在上述核心分布式列式存储架构的基础上，引入了元数据管理的分片机制，采用共享存储。
+Vertica Eon模式在上述核心分布式列式存储架构的基础上，引入了元数据管理的分片机制，采用共享存储。
 
 ## 3.1 分片和订阅 <a id="3-1-shards-and-subscriptions"></a>
 
@@ -140,7 +140,7 @@ Vertica将分片机制和远程存储结合起来，用来规划Eon模式下查�
 
 ## 4.1 会话的参与订阅选择 <a id="4-1-participating-subscription-selection"></a>
 
-Eon模式的分片通常有多个订阅节点，每个会话通过负载均衡机制来选参与服务的节点，而不是集群中的所有节点。
+Eon模式的分片通常有多个订阅节点，每个会话通过负载均衡机制来选参与服务的节点，而不是集群中的所有节点。
 
 同时Eon模式会尽可能尊重容错组(Fault Group)描述的子集群边界，尽量避免在带宽受限的链路上发送网络数据。
 
@@ -333,7 +333,7 @@ Vertica基于相同的代码库和产品，提供不同的部署选项，既可�
 \[1\] Andrew Lamb, Matt Fuller, Ramakrishna Varadarajan, Nga Tran, Ben Vandiver, Lyric Doshi, and Chuck Bear. 2012. The Vertica Analytic Database: C-store 7 Years Later. Proc. VLDB Endow. 5, 12 (Aug. 2012), 1790--1801. https://doi.org/10.14778/2367502.2367518 
 
 <a id="bookmark21"></a>
-\[2\] Ben Vandiver, Shreya Prasad, Pratibha Rana, Eden Zik, Amin Saeidi, Pratyush Parimal, Styliani Pantela, and Jaimin Dave. 2018. Eon Mode: Bringing the Vertica Columnar Database to the Cloud. In *SIGMOD'18: 2018 International Conference on Management of Data, June 10--15, 2018, Houston, TX, USA.* ACM, New York, NY, USA, [13](#bookmark27) pages. https://doi.org/10.1145/3183713.3196938
+\[2\] Ben Vandiver, Shreya Prasad, Pratibha Rana, Eden Zik, Amin Saeidi, Pratyush Parimal, Styliani Pantela, and Jaimin Dave. 2018. Eon Mode: Bringing the Vertica Columnar Database to the Cloud. In *SIGMOD'18: 2018 International Conference on Management of Data, June 10--15, 2018, Houston, TX, USA.* ACM, New York, NY, USA, 13 pages. https://doi.org/10.1145/3183713.3196938
 
 <a id="bookmark24"></a>
 \[3\] Amazon. 2018. Amazon Redshift. (2018).  https://aws.amazon.com/redshift/
