@@ -1,4 +1,4 @@
-# How to code Vertica UDx,debug and profile
+# How to code, debug and profile Vertica UDx
 
                           DQ 2018.05.30
 
