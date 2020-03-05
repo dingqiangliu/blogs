@@ -4,11 +4,11 @@
                      DQ 2020.03.05
 ```
 
-Minio is a high performance S3 storage with enough simplicity, it saves each object to directories in one of of disksets. To expand a Minio cluster, the easy way is just adding or removing zones.
+Minio is a high performance S3 storage with enough simplicity, it saves each object to directories in one of disksets. To expand a Minio cluster, the easy way is just adding or removing zones.
 
-To rebalance storage before remove zone, or maybe after add zone, just **move** object between disksets. Here **move** means copy directories of objects to temp localtion, rename and delete on file system, but be careful.
+To rebalance storage before remove zone, or maybe after add zone, just **move** object between disksets. Here **move** means copy directories of objects to temp localtion, rename and delete on file system, but with patience.
 
-Although there is no public official tool for this, you can do it with Linux commands rsync/cp/mv/rm according the diskset map.
+Although there is no public official tool for this at now, you can do it with commands rsync/cp/mv/rm according the diskset map.
 
 **Note**: actually there is no way to stop new objects put to removing zone on a live cluster at now, so a maintain window required to evict zone.
 
@@ -17,7 +17,7 @@ Here are steps to demo how to achieve it.
 ## setup cluster with 1 zone
 
  ```BASH
-dbadmin ~]$ minio --version
+[dbadmin ~]$ minio --version
 minio version RELEASE.2020-02-27T00-23-05Z
 
 [dbadmin ~]$ export NODE_LIST="192.168.33.105"
