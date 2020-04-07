@@ -102,7 +102,7 @@ Minio 采用分布式的架构，把数据分片、并和纠删码编码后的�
 
 ![Mino 架构](minio-and-vertica/minio-architecture.png)
 
-为了保证分布式存储的性能，Mino 把每 n(受环境变量 MINIO_ERASURE_SET_DRIVE_COUNT 控制，必须是 4~16 之间的偶数，缺省取尽可能大的值)块磁盘构成一个[纠删组](https://github.com/minio/minio/blob/RELEASE.2019-09-18T21-55-05Z/docs/distributed/DESIGN.md#architecture)(相当于stripe)。对象的原始数据和校验数据被分片后存储在每个纠删组的各个磁盘上与对象同名的目录中(下图中的part.n)，并附上对象的元数据(下图中的xl.json)。第一块数据磁盘序号由对象名称的 Hash 值确定，这样就可以把多个对象的原始数据分片均匀分布在所有磁盘上，从而均衡地利用所有磁盘的读写能力和容量。
+为了保证分布式存储的性能，Mino 把每 n(受环境变量 MINIO_ERASURE_SET_DRIVE_COUNT 控制，必须是 4~16 之间，缺省取尽可能大的值)块磁盘构成一个[纠删组](https://github.com/minio/minio/blob/RELEASE.2019-09-18T21-55-05Z/docs/distributed/DESIGN.md#architecture)(相当于stripe)。对象的原始数据和校验数据被分片后存储在每个纠删组的各个磁盘上与对象同名的目录中(下图中的part.n)，并附上对象的元数据(下图中的xl.json)。第一块数据磁盘序号由对象名称的 Hash 值确定，这样就可以把多个对象的原始数据分片均匀分布在所有磁盘上，从而均衡地利用所有磁盘的读写能力和容量。
 
 ![Mino 架构](minio-and-vertica/minio-erasue.png)
 
