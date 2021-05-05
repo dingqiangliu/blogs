@@ -121,8 +121,7 @@ kubectl exec $POD_NAME -i -n $NAMESPACE -- sudo /opt/vertica/sbin/install_vertic
 ```BASH
 mc mb local/testdb
 
-j
-# note: awsendpoint should use CLUSTER-IP of minio service in non-Minikube cluster.
+# Note: awsendpoint should use CLUSTER-IP of minio service in non-Minikube cluster.
 cat <<EOF | kubectl -n $NAMESPACE exec -i $POD_NAME -- tee /home/dbadmin/minio.conf
 awsauth = dbadmin:verticas3
 awsendpoint = $(minikube ip):9000
@@ -169,9 +168,9 @@ kubectl -n $NAMESPACE exec -i $POD_NAME -- /opt/vertica/bin/admintools \
 
 ### Notices
 
-#### reip
+#### re-ip
 
-Sometime we'd reip nodes of Vertica since ip of pod maybe change.  tool **restart_node** or **db_change_node_ip** can change ip of nodes when database is UP, tool **re_ip** can help when database is down.
+Sometime we'd re-ip nodes of Vertica since ip of pod maybe change.  tool **restart_node** or **db_change_node_ip** can correct ip of nodes when database is UP, tool **re_ip** is helpful when database is down.
 
 ```BASH
 kubectl exec vertica-release-defaultsubcluster-0 -- admintools -t restart_node --help
