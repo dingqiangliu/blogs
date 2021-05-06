@@ -66,8 +66,11 @@ docker login
 kubectl create secret generic regcred --from-file=.dockerconfigjson=$HOME/.docker/config.json --type=kubernetes.io/dockerconfigjson 
 kubectl get secret regcred --output=yaml
 
+# Note: configinit container need password of dbadmin to call "admintools -t db_change_node_ip" or "admintools -t restart_node" for reparing pod
+kubectl create secret generic su-passwd --from-literal=password=vertica
+
 # helm delete vertica-release # delete former installation
-helm install --debug --set subclusters.defaultsubcluster.service.type=NodePort,subclusters.defaultsubcluster.service.nodePort=5433,subclusters.defaultsubcluster.replicaCount=3,subclusters.defaultsubcluster.resources.requests.cpu=1,subclusters.defaultsubcluster.resources.requests.memory=1Gi,subclusters.defaultsubcluster.resources.limits.cpu=1,subclusters.defaultsubcluster.resources.limits.memory=1Gi vertica-release vertica-charts/vertica
+helm install --debug --set db.superuserPasswordSecret.name=su-passwd,db.superuserPasswordSecret.key=password,subclusters.defaultsubcluster.service.type=NodePort,subclusters.defaultsubcluster.service.nodePort=5433,subclusters.defaultsubcluster.replicaCount=3,subclusters.defaultsubcluster.resources.requests.cpu=1,subclusters.defaultsubcluster.resources.requests.memory=1Gi,subclusters.defaultsubcluster.resources.limits.cpu=1,subclusters.defaultsubcluster.resources.limits.memory=1Gi vertica-release vertica-charts/vertica
 ```
 
 ####   option 1.2: from offline
@@ -84,14 +87,16 @@ wget https://github.com/vertica/vertica-kubernetes/releases/download/v0.1.0/vert
 gunzip -c verticadocker-vertica-k8s.tgz | minikube ssh --native-ssh=false docker image load # minikube image load, or docker image load for ssh each node
 minikube ssh docker image ls verticadocker/vertica-k8s
 
+# Note: configinit container need password of dbadmin to call "admintools -t db_change_node_ip" or "admintools -t restart_node" for reparing pod
+kubectl create secret generic su-passwd --from-literal=password=vertica
+
 # helm delete vertica-release # delete former installation
-helm install --debug --set subclusters.defaultsubcluster.service.type=NodePort,subclusters.defaultsubcluster.service.nodePort=5433,subclusters.defaultsubcluster.replicaCount=3,subclusters.defaultsubcluster.resources.requests.cpu=1,subclusters.defaultsubcluster.resources.requests.memory=1Gi,subclusters.defaultsubcluster.resources.limits.cpu=1,subclusters.defaultsubcluster.resources.limits.memory=1Gi vertica-release vertica-0.1.0.tgz 
+helm install --debug --set db.superuserPasswordSecret.name=su-passwd,db.superuserPasswordSecret.key=password,subclusters.defaultsubcluster.service.type=NodePort,subclusters.defaultsubcluster.service.nodePort=5433,subclusters.defaultsubcluster.replicaCount=3,subclusters.defaultsubcluster.resources.requests.cpu=1,subclusters.defaultsubcluster.resources.requests.memory=1Gi,subclusters.defaultsubcluster.resources.limits.cpu=1,subclusters.defaultsubcluster.resources.limits.memory=1Gi vertica-release vertica-0.1.0.tgz 
 
 helm get values vertica-release
 kubectl get events -w
 kubectl get svc -o wide
 kubectl get pods -o wide # kubectl exec -it $POD_NAME -- /bin/bash
-kubectl describe pod $POD_NAME
 ```
 
 ### step 2: setup Vertica cluster
@@ -167,6 +172,20 @@ kubectl -n $NAMESPACE exec -i $POD_NAME -- /opt/vertica/bin/admintools \
 ```
 
 ### Notices
+
+#### troubleshooting
+
+Here are some troubleshooting commands:
+
+```BASH
+kubectl get events -w
+kubectl get svc -o wide
+kubectl get pods -o wide # kubectl exec -it $POD_NAME -- /bin/bash
+kubectl describe pod $POD_NAME
+
+kubectl logs -f $RPOD_NAME -c configinit
+kubectl logs -f $RPOD_NAME -c server
+```
 
 #### re-ip
 
