@@ -1,35 +1,35 @@
-# 瞬间完成故障节点接管的MPP数据库冗余节点方案
+# A spare node takes over a failed node of Vertica cluster just under second
 ```text
-                刘定强 2021.05.10 
+              DQ 2021.05.10
 ```
-[Click here for English version](spare-node-on-vertica-eon-mode_en.md) 
-像Vertica这样开放架构的MPP分析数据库，由于采用工业标准化服务器，不可避免在某些时候会碰到内存、网卡、磁盘等硬件故障。Vertica自带高可用，通过节点间数据冗余来保证某些个节点硬件故障不会影响数据库继续使用。
+[点击这里阅读中文版](spare-node-on-vertica-eon-mode_zh_CN.md) 
+As an open-architecture MPP, Massively Parallel Processing, analytic database, Vertica prefers industry standard infrastructure, hardware such as memory, and network interface and disks failures sometimes happen. Vertica provide native high availability through data redundancy between nodes to ensure that database still works well when some node failed.
 
-但个别节点硬件故障还是会对系统有一些影响。首先，由于有的节点要同时负担原来两个节点的任务，查询用户会感觉到响应时间就会比正常时候长。另外，故障节点如果因为备件和维修流程等原因无法尽快修复，会让数据库较长时间处于亚健康状态，不利于保障系统长期可持续地高性能运行。
+However, hardware failures will still have some impact on the system. First, as some node has to handle the tasks of failed node and itself at the same time, end users will feel longer query response time than normal. In addition, if the failed node cannot be back as soon as possible for maintenance procedures or other reasons, it will leave the database in a sub-healthy state for longer time then expectation, which is not good for stable performance and availability of the system.
 
-**Vertica企业模式**([Enterprise mode](https://www.vertica.com/docs/latest/HTML/Content/Authoring/ConceptsGuide/Components/ArchitectureOfTheVerticaCluster.htm))提供了可选的热备节点([Active Standby Nodes](https://www.vertica.com/docs/latest/HTML/Content/Authoring/AdministratorsGuide/ManageNodes/HotStandbyNodes.htm))功能。正常的时候热备节点在集群中不存放数据也不参与计算。根据预先制定的策略，当集群中有节点发生故障后较长时间没有被干预和修复，Vertica会自动用热备节点接管故障节点，以确保集群尽快恢复到设计的性能和可用状态。
+**[Vertica Enterprise mode](https://www.vertica.com/docs/latest/HTML/Content/Authoring/ConceptsGuide/Components/ArchitectureOfTheVerticaCluster.htm)** provides optional [Active Standby Nodes](https://www.vertica.com/docs/latest/HTML/Content/Authoring/AdministratorsGuide/ManageNodes/HotStandbyNodes.htm) feature. Standby node stays in the cluster and usually does not participate in processing and storing data. It will take over the failed node automatically according to a predefined strategy, or manually, to ensure performance and availability of database as expectation.
 
-企业模式的热备节点可以自动修复大规模集群的可用性，减少运维工作的人力负担。但由于Vertica企业模式计算和存储紧耦合，一般每个节点上持久化存储了10TB级别的数据，热备节点需要较长的时间复制完数据才能真正完成接管动作。
+Active standby node can automatically heal large cluster and reduce the labor cost of operation. However, due to the tight coupling between computing and storage in Enterprise model and there is normally 10 TBs of data persisted on each node, it takes lots of  time for standby node to to replicate data and complete the takeover action finally.
 
-**Vertica计算存储分离模式**(**[Eon mode](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/Architecture.htm)**的)的每个节点仍然只负责部分数据的处理和计算，节点的具体职责按订阅的分片([Shard](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/ShardsAndSubscriptions.htm))来划分。但由于计算和存储的职责分离，带来了负载横向隔离、弹性快速扩展等更多好处和灵活性。
+In **[Vertica Eon mode](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/Architecture.htm)**,  each node is still only responsible for processing part of the data , it depends on the [Shards](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/ShardsAndSubscriptions.htm) it subscribes to. A lot of benefits, such as workloads isolation horizontally and elastic scalability, come from the separation of computing and storage.
 
 ![Eon Mode Shards and Subscriptions](https://www.vertica.com/docs/latest/HTML/Content/Resources/Images/Eon/eon-mode-Shard-Diagram-1.png)
 
-我们通过在计算存储分离模式数据库的子集群中添加一个**冗余节点**，就可以轻松实现自动接管故障节点。这个冗余节点订阅所有分片，在正常时不会响应请求。一旦有某个节点发生故障，Vertica会立即自动选择冗余节点来承担故障节点的职责，确保数据库的可用资源和可靠性不变。
+A **spare node** in subclusters of Vertica Eon mode database can help automatically take over a failed node at blazing speed. A spare node subscribes to all shards and will not participate in response query usually. Once a node fails, the spare node will take over the failed node immediately to ensure enough resources and reliability of the database unchanged.
 
-下面我们一个实验来验证计算存储分离模式下的Vertica冗余节点的自动、快速接管故障节点的能力。
+Now  let's verify how a spare node in a Vertica Eon mode database takes over the failed node with a experiment.
 
 
 
-## 1. 测试场景
+## 1. Testing scenarios
 
-我们的测试环境和场景如下：
-- 3个节点的Vertica计算存储分离模式集群，有3个分片，ksafe=1，每个节点订阅两个不同分片以提供高可用性。 
-- 先添加一个冗余节点，订阅所有分片，检查它是在正常情况下是否参与计算。
-- 然后模拟硬件故障，停掉一个节点，验证冗余节点是否能立即接管故障节点。
-- 最后模拟故障修复后，重启故障节点，验证修复的节点是否能立即恢复工作。
+The testing environment and scenarios are as follows:
+- A 3 nodes Vertica Eon mode database, with 3 shards and ksafe=1 for high availability.
+- At first, add a spare node, subscribes to all shards, and check whether it participates in response query usually.
+- Then, kill a node to simulate a hardware failure, and verify whether the spare node can immediately take over the failed node automatically.
+- Finally, restart the failed node, and verify whether the failed node can immediately resume work without leveraging the spare node anymore.
 
-下面的查询结果展示了测试数据库中节点订阅分片的情况。
+The following query results show the shards, subscriptions of nodes in the test database.
 
 ```SQL
 dbadmin=> select version();
@@ -71,9 +71,9 @@ dbadmin=> select node_name, shard_name, subscription_state, is_participating_pri
 (9 rows)
 ```
 
-## 2. 添加冗余节点，冗余节点不参与工作
+## 2. Add a spare node and verify that the spare node will not participate in response query usually
 
-通过Vertica管理工具的[添加节点](https://www.vertica.com/docs/latest/HTML/Content/Authoring/AdministratorsGuide/ManageNodes/AddingNodes.htm)功能，添加一个冗余节点`v_testdb_node0004` ，让它订阅所有分片。
+Add a spare node `v_testdb_node0004` with the [Add Node](https://www.vertica.com/docs/latest/HTML/Content/Authoring/AdministratorsGuide/ManageNodes/AddingNodes.htm) function of Vertica's management tool,  and subscribes to all shards.
 
 ```SQL
 dbadmin=> select node_name, node_state, node_address, subcluster_name from nodes;
@@ -128,7 +128,7 @@ dbadmin=> select node_name, shard_name, subscription_state, is_participating_pri
 (13 rows)
 ```
 
-然后重复1000次连接数据库，检查系统表 [SESSION_SUBSCRIPTIONS](https://www.vertica.com/docs/latest/HTML/Content/Authoring/SQLReferenceManual/SystemTables/CATALOG/SESSION_SUBSCRIPTIONS.htm) 中显示的参与计算的节点集合，冗余节点`v_testdb_node0004`在正常情况下确实不参与计算。
+Then repeat 1000 times to connect to the database, the content of the system table [SESSION_SUBSCRIPTIONS](https://www.vertica.com/docs/latest/HTML/Content/Authoring/SQLReferenceManual/SystemTables/CATALOG/SESSION_SUBSCRIPTIONS.htm) shows that the spare node `v_testdb_node0004` never participates in response nodes list.
 
 ```BASH
 $ $VSQL -c "select local_node_name()"
@@ -142,9 +142,9 @@ $ for((i=0; i<1000; i++)) ; do \
 v_testdb_node0002,v_testdb_node0001,v_testdb_node0003
 ```
 
-## 3. 模拟节点硬件故障，冗余节点立即自动接管故障
+## 3. Kill a node and verify the spare node can immediately take over the failed node automatically
 
-用 Vertica 的管理工具杀掉节点 v_testdb_node0002(IP为172.17.0.4)，以模拟节点硬件故障。
+To simulate a hardware failure,  kill the node `v_testdb_node0002`, with IP 172.17.0.4 here,  using management tool of Vertica.
 
 ```BASH
 $ $VSQL -c "select local_node_name()"
@@ -162,7 +162,7 @@ Checking for processes to be down
 All processes are down.
 ```
 
-然后立即重复1000次连接数据库，检查系统表 [SESSION_SUBSCRIPTIONS](https://www.vertica.com/docs/latest/HTML/Content/Authoring/SQLReferenceManual/SystemTables/CATALOG/SESSION_SUBSCRIPTIONS.htm) 中显示的参与计算的节点集合，冗余节点`v_testdb_node0004`已经自动接管了故障节点`v_testdb_node0002`的工作，计算所用的资源没有变化。
+Then repeat 1000 times to connect to the database, the content of the system table [SESSION_SUBSCRIPTIONS](https://www.vertica.com/docs/latest/HTML/Content/Authoring/SQLReferenceManual/SystemTables/CATALOG/SESSION_SUBSCRIPTIONS.htm) shows that the spare node `v_testdb_node0004` automatically participates in response nodes list with role of failed node `v_testdb_node0002`.
 
 ```BASH
 $ for((i=0; i<1000; i++)) ; do \
@@ -171,9 +171,9 @@ $ for((i=0; i<1000; i++)) ; do \
 v_testdb_node0001,v_testdb_node0004,v_testdb_node0003
 ```
 
-## 4. 恢复故障节点，一切恢复正常
+## 4. Restart the failed node and verify the failed node can immediately resume work without leveraging the spare node anymore
 
-用 Vertica 的管理工具重新启动节点`v_testdb_node0002`(IP为172.17.0.4)，模拟故障恢复。
+To simulate failure recovery,  restart the node `v_testdb_node0002`, with IP 172.17.0.4 here,  using management tool of Vertica.
 
 ```BASH
 $ $VSQL -c "select local_node_name()"
@@ -192,7 +192,7 @@ $ admintools -t restart_node -s 172.17.0.4 -d testdb
 	Node Status: v_testdb_node0002: (UP) 
 ```
 
-然后立即重复1000次连接数据库，检查系统表 [SESSION_SUBSCRIPTIONS](https://www.vertica.com/docs/latest/HTML/Content/Authoring/SQLReferenceManual/SystemTables/CATALOG/SESSION_SUBSCRIPTIONS.htm) 中显示的参与计算的节点集合，故障节点`v_testdb_node0002`恢复后参与正常工作，冗余节点`v_testdb_node0004`和正常情况一样不再参与计算。
+Then repeat 1000 times to connect to the database, the content of the system table [SESSION_SUBSCRIPTIONS](https://www.vertica.com/docs/latest/HTML/Content/Authoring/SQLReferenceManual/SystemTables/CATALOG/SESSION_SUBSCRIPTIONS.htm) shows that the recovered node `v_testdb_node0002` take back the role in response nodes list, there is no the spare node `v_testdb_node0004` in it any more.
 
 ```BASH
 $ for((i=0; i<1000; i++)) ; do \
@@ -200,7 +200,6 @@ $ for((i=0; i<1000; i++)) ; do \
   done | sort -u
 v_testdb_node0002,v_testdb_node0001,v_testdb_node0003
 ```
-## 5. 结论
+## 5. Conclusion
 
-通过上面的测试可以得出结论，Vertica的计算存储分离模式确实带来了极高的灵活性和可管理性，与计算存储紧耦合的普通MPP数据库相比，额外少量的冗余节点就可以瞬间完成故障接管，能保障系统**可持续的性能和高可用性**。
-
+Through the above experiment, it can be concluded that Vertica Eon mode does contribute extremely high flexibility and manageability. Compared with the ordinary MPP database with tightly coupled computing and storage, a spare node of Eon mode can automatically take over failure at blazing speed with low cost, which guarantee the system with **stable performance and high availability**.
