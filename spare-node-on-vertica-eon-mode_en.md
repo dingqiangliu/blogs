@@ -3,6 +3,7 @@
               DQ 2021.05.10
 ```
 [点击这里阅读中文版](spare-node-on-vertica-eon-mode_zh_CN.md) 
+
 As an open-architecture MPP, Massively Parallel Processing, analytic database, Vertica prefers industry standard infrastructure, hardware such as memory, and network interface and disks failures sometimes happen. Vertica provide native high availability through data redundancy between nodes to ensure that database still works well when some node failed.
 
 However, hardware failures will still have some impact on the system. First, as some node has to handle the tasks of failed node and itself at the same time, end users will feel longer query response time than normal. In addition, if the failed node cannot be back as soon as possible for maintenance procedures or other reasons, it will leave the database in a sub-healthy state for longer time then expectation, which is not good for stable performance and availability of the system.
