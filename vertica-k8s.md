@@ -278,8 +278,24 @@ Options:
                         -U
   -d DB, --database=DB  Name of a database. Required with the following
                         options: -O, -T, -U.
-```
 
+# Example: reIP in pods when database is not UP
+function reVerticaIP() {
+    local POD_NAME=$(kubectl get pods --selector=vertica.com/usage=server -o jsonpath="{.items[0].metadata.name}")
+    echo "---------------------------------"
+    echo "Step1: merge old IPs and new IPs of pods, write it in the first pod"
+    echo "---------------------------------"
+    paste \
+        <(kubectl exec -i $POD_NAME -- cat /opt/vertica/config/admintools.conf | grep -E '^node[[:digit:]]{4}' | sort | awk -F '[=,]' '{gsub(/ /,""); print $2}') \
+        <(kubectl get pods --selector=vertica.com/usage=server -o jsonpath="{.items[*].*.podIP}" | sed 's/\s/\n/g') \
+        | awk '{print $1" "$2}' | kubectl exec -i $POD_NAME -- tee /tmp/reip.txt
+    echo "---------------------------------"
+    echo "Step2: reIP"
+    echo "---------------------------------"
+    kubectl exec -i $POD_NAME -- /opt/vertica/bin/admintools -t re_ip -f /tmp/reip.txt
+}
+alias reVerticaIP=reVerticaIP
+```
 
 ## References
 
