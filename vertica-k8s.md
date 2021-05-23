@@ -285,10 +285,10 @@ function reVerticaIP() {
     echo "---------------------------------"
     echo "Step1: merge old IPs and new IPs of pods, write it in the first pod"
     echo "---------------------------------"
-    paste \
+    paste -d " " \
         <(kubectl exec -i $POD_NAME -- cat /opt/vertica/config/admintools.conf | grep -E '^node[[:digit:]]{4}' | sort | awk -F '[=,]' '{gsub(/ /,""); print $2}') \
         <(kubectl get pods --selector=vertica.com/usage=server -o jsonpath="{.items[*].*.podIP}" | sed 's/\s/\n/g') \
-        | awk '{print $1" "$2}' | kubectl exec -i $POD_NAME -- tee /tmp/reip.txt
+        | kubectl exec -i $POD_NAME -- tee /tmp/reip.txt
     echo "---------------------------------"
     echo "Step2: reIP"
     echo "---------------------------------"
