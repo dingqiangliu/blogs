@@ -172,4 +172,4 @@ done | sort | uniq -c
 ```
 ## 5. Conclusion
 
-According result of above experiment, we can confidential say the EXECUTE type node of Vertica can achieve our dedicated node  goal for some special tasks, without impacting others or impacted by others.
+According to the results of above experiment, we can confidential say the EXECUTE type node of Vertica can achieve our dedicated node  goal for some special tasks, without impacting others or impacted by others.
