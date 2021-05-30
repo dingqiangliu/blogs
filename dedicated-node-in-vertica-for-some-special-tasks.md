@@ -100,8 +100,7 @@ Then repeat 100 times to load data from client on the EXECUTE node `v_test_speci
 
 ```BASH
 for((i=0; i<100; i++)) ; do \
-    VSQL -h 172.17.0.7 -c "explain select * from tables" | grep 'Execute on' ; \
-    tid=$(VSQL -h 172.17.0.7 -c "profile copy test from stdin no commit" <<<"$(seq 1001 1100)" 2>&1 | grep '=' | awk -F '=' '{print $2}' | awk '{print $1}')
+    tid=$(VSQL -h 172.17.0.7 -c "profile copy test from stdin no commit" <<<"$(seq 1001 1100)" 2>&1 | grep '=' | awk -F '=' '{print $2}' | awk '{print $1}'); \
     VSQL -Aqt -c "select distinct node_name, operator_name from execution_engine_profiles where transaction_id=${tid} and statement_id=1 order by 1, 2"; \
 done | sort -u
 v_test_special_node_node0001|DataTarget
