@@ -86,9 +86,10 @@ EOF
 kubectl get sc minio-local-storage || echo 'create SC failed!'
 
 # create StorageClass
-minikube ssh "sudo mkdir -p /data/minio/; sudo chmod a+rwx -R /data/minio/"
 for i in $(seq 1  4) ; do
-kubectl apply -f <(cat <<-EOF
+  minikube ssh "sudo mkdir -p /data/minio/disk${i}; sudo chmod a+rwx -R /data/minio/disk${i}"
+
+  kubectl apply -f <(cat <<-EOF
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -172,9 +173,9 @@ docker login;
 docker pull quay.io/jetstack/cert-manager-controller:v1.5.3 ; docker image save quay.io/jetstack/cert-manager-controller:v1.5.3 | gzip > cert-manager-controller-v1.5.3.tgz
 docker pull quay.io/jetstack/cert-manager-cainjector:v1.5.3 ; docker image save quay.io/jetstack/cert-manager-cainjector:v1.5.3 | gzip > cert-manager-cainjector-v1.5.3.tgz
 docker pull quay.io/jetstack/cert-manager-webhook:v1.5.3 ; docker image save quay.io/jetstack/cert-manager-webhook:v1.5.3 | gzip > cert-manager-webhook-v1.5.3.tgz
-docker pull gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0 ; docker image save gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0 | gzip > kube-rbac-proxy:v0.8.0.tgz
+docker pull gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0 ; docker image save gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0 | gzip > kube-rbac-proxy-v0.8.0.tgz
 docker pull vertica/verticadb-operator:1.1.0 ; docker image save vertica/verticadb-operator:1.1.0 | gzip > verticadb-operator-1.1.0-img.tgz
-docker pull vertica/vertica-k8s:11.0.1-0 ; docker image save vertica/vertica-k8s:11.0.1-0 | gzip > vertica-k8s:11.0.1-0.tgz
+docker pull vertica/vertica-k8s:11.0.1-0 ; docker image save vertica/vertica-k8s:11.0.1-0 | gzip > vertica-k8s-11.0.1-0.tgz
 
 # Installing cert-manager
 wget https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
@@ -190,17 +191,15 @@ wget https://github.com/vertica/vertica-kubernetes/releases/download/v1.1.0/vert
 gunzip -c cert-manager-controller-v1.5.3.tgz | minikube ssh --native-ssh=false docker image load
 gunzip -c cert-manager-cainjector-v1.5.3.tgz | minikube ssh --native-ssh=false docker image load
 gunzip -c cert-manager-webhook-v1.5.3.tgz | minikube ssh --native-ssh=false docker image load
-gunzip -c kube-rbac-proxy:v0.8.0.tgz | minikube ssh --native-ssh=false docker image load
+gunzip -c kube-rbac-proxy-v0.8.0.tgz | minikube ssh --native-ssh=false docker image load
 gunzip -c verticadb-operator-1.1.0-img.tgz | minikube ssh --native-ssh=false docker image load
-gunzip -c vertica-k8s:11.0.1-0.tgz | minikube ssh --native-ssh=false docker image load
+gunzip -c vertica-k8s-11.0.1-0.tgz | minikube ssh --native-ssh=false docker image load
 
 # Installing cert-manager
 kubectl apply -f cert-manager.yaml
 kubectl get pods --namespace cert-manager
 
 # Installing the VerticaDB Operator and Admission Controller
-helm repo add vertica-charts https://vertica.github.io/charts
-helm repo update
 helm install vdb-op verticadb-operator-1.1.0.tgz
 ```
 
