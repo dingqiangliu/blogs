@@ -28,6 +28,8 @@ kubectl get pod kube-controller-manager-${CLUSTERNAME} -n kube-system -o yaml | 
 
 #### option 1.1: Install Online
 
+Plugin minio can handle almost everything about Minio, you only need install it explicitly. Plugin view-secret is optional, it can help us get forgotten secrets.
+
 ```BASH
 # install the MinIO Operator and Plugin
 kubectl krew install minio view-secret
@@ -121,6 +123,8 @@ kubectl patch service minio --type=merge -p '{"spec": {"type": "LoadBalancer", "
 
 ### step 3: Test Minio
 
+You can access your S3 storage through service name in k8s cluster, or through loadbalancer in world out of k8s.
+
 ```BASH
 # replace "$(minikube ip)" with your real address of LoadBalancer
 alias MC="mc --insecure"
@@ -144,6 +148,8 @@ MC cat verticas3/test/test.csv | wc -l
 ### step 1: Install Vertica
 
 ####   option 1.1: Install Inline
+
+Operator can handle almost everything about Vertica, you only need install it explicitly.
 
 ```BASH
 # Installing cert-manager
@@ -200,7 +206,7 @@ helm install vdb-op verticadb-operator-1.1.0.tgz
 
 ### step 2: Create Vertica Database
 
-Create or patch Vertica database is easy, just leverage kubectl and CRD of Vertica.
+Create or patch Vertica database is simple and straightforward for person familiar with k8s , just leverage kubectl and CRD.
 
 ```BASH
 # create a secret named su-passwd to store your superuser password
@@ -266,7 +272,7 @@ kubectl get svc testdb-primary-subcluster -o jsonpath="{.*.externalIPs[*]}"
 
 ### step 3: Play with Your Database
 
-Create Vertica database is simple and straightforward for person familiar with k8s , just leverage kubectl and CRD.
+You can connect your database through subcluster service name in k8s cluster, or through loadbalancer in world out of k8s.
 
 ```BASH
 # connect to database, replace "$(minikube ip)" with your real address of LoadBalancer
