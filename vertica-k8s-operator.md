@@ -12,21 +12,21 @@ Vertica Eon mode prefer S3-compatible object storage as its communal storage. He
 
 ![Kubernetes Managed Object Storage with MinIO](https://blog.min.io/content/images/size/w2000/2021/04/MinIO-K8s_header.png)
 
-### step 1: Install Minio
+### Step 1: Install Minio
 
 Prerequisites:
 
 ```BASH
 export CLUSTERNAME=vertica
 # create k8s cluster. Here we test on minikube, optional parameters --image-* just for better experience in China mainland.
-#minikube start -p ${CLUSTERNAME} --driver=docker --nodes=1 --extra-config=apiserver.service-node-port-range=1-65535 # --image-mirror-country='cn' --image-repository='registry.cn-hangzhou.aliyuncs.com/google_containers' 
+#minikube start -p ${CLUSTERNAME} --driver=docker --nodes=1 --cpus=max --extra-config=apiserver.service-node-port-range=1-65535 # --image-mirror-country='cn' --image-repository='registry.cn-hangzhou.aliyuncs.com/google_containers' 
 
 kubectl get pod kube-controller-manager-${CLUSTERNAME} -n kube-system -o yaml | grep 'cluster-signing-cert-file\|cluster-signing-key-file' || echo 'The Operator cannot complete initialization if the Kubernetes cluster is not configured to respond to a generated CSR. Certain Kubernetes providers do not specify these configuration values by default.'
 ```
 
 
 
-#### option 1.1: Install Online
+#### Option 1.1: Install Online
 
 Plugin minio can handle almost everything about Minio, you only need install it explicitly. Plugin view-secret is optional, it can help us get forgotten secrets.
 
@@ -36,7 +36,7 @@ kubectl krew install minio view-secret
 kubectl minio version || echo 'Install the MinIO Kubernetes Operator failed!'
 ```
 
-#### option 1.2: Install Offline
+#### Option 1.2: Install Offline
 
 Maybe Internet is not available to your environment , you can download related docker images,  operator and kubectl plugins when Internet is accessible, and install them latter.
 
@@ -64,7 +64,7 @@ cp kubectl-* /usr/local/bin/
 kubectl minio version || echo 'Install the MinIO Kubernetes Operator failed!'
 ```
 
-### step 2: Create Minio Tenant
+### Step 2: Create Minio Tenant
 
 Create tenant of Minio is quit easy with kubectl plugin and operator.
 
@@ -122,7 +122,7 @@ kubectl get svc | grep 'minio\|verticas3'
 kubectl patch service minio --type=merge -p '{"spec": {"type": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "ports": [{"name": "https-minio", "protocol": "TCP", "port": 443, "nodePort": 9000, "targetPort": 9000 }]}}'
 ```
 
-### step 3: Test Minio
+### Step 3: Test Minio
 
 You can access your S3 storage through service name in k8s cluster, or through loadbalancer in world out of k8s.
 
@@ -146,9 +146,9 @@ MC cat verticas3/test/test.csv | wc -l
 
 ## Install Vertica on k8s
 
-### step 1: Install Vertica
+### Step 1: Install Vertica
 
-####   option 1.1: Install Inline
+####   Option 1.1: Install Inline
 
 Operator can handle almost everything about Vertica, you only need install it explicitly.
 
@@ -163,7 +163,7 @@ helm repo update
 helm install vdb-op vertica-charts/verticadb-operator
 ```
 
-####   option 1.2: Install Offline
+####   Option 1.2: Install Offline
 
 Maybe Internet is not available to your environment , you can download related docker images and Helm Chart when Internet is accessible, and install them latter.
 
@@ -203,11 +203,14 @@ kubectl get pods --namespace cert-manager
 helm install vdb-op verticadb-operator-1.1.0.tgz
 ```
 
-### step 2: Create Vertica Database
+### Step 2: Create Vertica Database
 
 Create or patch Vertica database is simple and straightforward for person familiar with k8s , just leverage kubectl and CRD.
 
 ```BASH
+# optional step for nodes number more than 3
+kubectl create secret generic vertica-license --from-file=license.dat=vlicense.dat
+
 # create a secret named su-passwd to store your superuser password
 kubectl create secret generic su-passwd --from-literal=password=vertica
 
@@ -229,6 +232,7 @@ spec:
   imagePullPolicy: IfNotPresent
   dbName: testdb
   initPolicy: Create
+  licenseSecret: vertica-license
   superuserPasswordSecret: su-passwd
   certSecrets:
     - name: aws-cert
@@ -242,7 +246,7 @@ spec:
     path: s3://test/testdb
   subclusters:
   - isPrimary: true
-    name: primary-subcluster
+    name: primarysubcluster
     size: 3
     serviceType: ClusterIP
     resources:
@@ -258,32 +262,126 @@ EOF
 kubectl describe verticadbs.vertica.com testdb
 
 # do not expose service as default
-# kubectl patch verticadbs.vertica.com testdb  --type=merge -p '{"spec": {"subclusters": [{"name": "primary-subcluster", "serviceType": "ClusterIP", "externalIPs":[]}]}}'
+# kubectl patch verticadbs.vertica.com testdb  --type=merge -p '{"spec": {"subclusters": [{"name": "primarysubcluster", "serviceType": "ClusterIP", "externalIPs":[]}]}}'
 
 # expose service to LoadBalancer, replace "$(minikube ip)" with your real address of LoadBalancer 
-kubectl patch verticadbs.vertica.com testdb  --type=merge -p '{"spec": {"subclusters": [{"name": "primary-subcluster", "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5433}]}}'
+kubectl patch verticadbs.vertica.com testdb  --type=merge -p '{"spec": {"subclusters": [{"name": "primarysubcluster", "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5433}]}}'
 
-kubectl get svc testdb-primary-subcluster -o jsonpath="{.*.externalIPs[*]}"
+kubectl get svc testdb-primarysubcluster -o jsonpath="{.*.externalIPs[*]}"
 # 192.168.76.2
-```
 
-
-
-### step 3: Play with Your Database
-
-You can connect your database through subcluster service name in k8s cluster, or through loadbalancer in world out of k8s.
-
-```BASH
 # connect to database, replace "$(minikube ip)" with your real address of LoadBalancer
 alias VSQL="vsql -h $(minikube ip) -U dbadmin -w vertica"
 for in in $(seq 1 9) ; do  VSQL -Aqt -c "select local_node_name()" ; done | sort | uniq -c
 # 2 v_testdb_node0001
 # 3 v_testdb_node0002
 # 4 v_testdb_node0003
+```
+
+### Step 3: Add a secondary subcluster 
+
+```BASH
+# Add another subcluster and expose service to LoadBalancer, replace "$(minikube ip)" with your real address of LoadBalancer 
+kubectl patch verticadbs.vertica.com testdb  --type=merge -p '{"spec": {"subclusters": [{"name": "primarysubcluster", "isPrimary": true, "size": 3, "resources": {"limits": {"cpu": 1, "memory": "1Gi"}, "requests": {"cpu": 1, "memory": "1Gi"}}, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5433}, {"name": "secondarysubcluster", "isPrimary": false, "size": 3, "resources": {"limits": {"cpu": 1, "memory": "1Gi"}, "requests": {"cpu": 1, "memory": "1Gi"}}, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5435}]}}'
+
+# connect to database, replace "$(minikube ip)" with your real address of LoadBalancer
+alias VSQL2="vsql -h $(minikube ip) -U dbadmin -w vertica -p 5435"
+for in in $(seq 1 9) ; do  VSQL2 -Aqt -c "select local_node_name()" ; done | sort | uniq -c
+# 4 v_testdb_node0004
+# 3 v_testdb_node0005
+# 2 v_testdb_node0006
+```
+
+### Step 4: Add more nodes to the secondary subcluster 
+
+```BASH
+# connect to database, replace "$(minikube ip)" with your real address of LoadBalancer
+alias VSQL2="vsql -h $(minikube ip) -U dbadmin -w vertica -p 5435"
+
+# there are only 3 nodes participating
+VSQL2 -Aqtc "select listagg(distinct node_name) from(select node_name from session_subscriptions where is_participating order by 1) t"
+# v_testdb_node0004,v_testdb_node0005,v_testdb_node0006
+
+# Add one more node to the secondary subcluster 
+kubectl patch verticadbs.vertica.com testdb  --type=merge -p '{"spec": {"subclusters": [{"name": "primarysubcluster", "isPrimary": true, "size": 3, "resources": {"limits": {"cpu": 1, "memory": "1Gi"}, "requests": {"cpu": 1, "memory": "1Gi"}}, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5433}, {"name": "secondarysubcluster", "isPrimary": false, "size": 4, "resources": {"limits": {"cpu": 1, "memory": "1Gi"}, "requests": {"cpu": 1, "memory": "1Gi"}}, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5435}]}}'
+
+# there are 6 nodes participating at now
+VSQL2 -Aqtc "select listagg(distinct node_name) from(select node_name from session_subscriptions where is_participating order by 1) t"
+# v_testdb_node0004,v_testdb_node0005,v_testdb_node0006,v_testdb_node0007
+```
+
+### Step 5: Terminate Database 
+
+```BASH
+# sync database to communal storage
+VSQL -Aqtc "select sync_catalog()"
+
+# destry cluster
+kubectl delete verticadbs.vertica.com testdb 
+for pvc in $(kubectl get persistentvolumeclaims --selector=vertica.com/database=testdb -o jsonpath="{.items[*].metadata.name}"); do kubectl delete persistentvolumeclaims ${pvc} ; done
+```
+
+### Step 6: Revive Database
+
+Note:  properties "**initPolicy**" is "***Revive***" here. Please replace "$(minikube ip)" with your real address of LoadBalancer.
+
+```BASH
+kubectl apply -f <(cat <<-EOF
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: testdb
+spec:
+  image: vertica/vertica-k8s:11.0.1-0
+  imagePullPolicy: IfNotPresent
+  dbName: testdb
+  initPolicy: Revive
+  licenseSecret: vertica-license
+  superuserPasswordSecret: su-passwd
+  certSecrets:
+    - name: aws-cert
+  local:
+    requestSize: 1Gi
+  shardCount: 12
+  communal:
+    credentialSecret: s3-creds
+    endpoint: https://minio.default.svc.cluster.local
+    caFile: /certs/aws-cert/root-cert.pem
+    path: s3://test/testdb
+  subclusters:
+  - isPrimary: true
+    name: primarysubcluster
+    size: 3
+    serviceType: LoadBalancer
+    externalIPs:
+    - $(minikube ip)
+    nodePort: 5433
+    resources:
+      limits:
+        cpu: 1
+        memory: 1Gi
+      requests:
+        cpu: 1
+        memory: 1Gi
+EOF
+)
+```
+
+## Play with Your Database
+
+You can connect your database through subcluster service name in k8s cluster, or through loadbalancer in world out of k8s.
+
+```BASH
+# connect to database, replace "$(minikube ip)" with your real address of LoadBalancer
+alias VSQL="vsql -h $(minikube ip) -U dbadmin -w vertica"
 
 VSQL -c "create table test(id int)"
 VSQL -c "copy test from 's3://test/test.csv'"
 VSQL -Aqtc "select count(*) from test"
+# 1000
+
+VSQL -c "create external table test_ext(id int) as copy test from 's3://test/test.csv'"
+VSQL -Aqtc "select count(*) from test_ext"
 # 1000
 ```
 
@@ -291,7 +389,7 @@ Have fun!
 
 ### Notices
 
-#### troubleshooting
+#### Troubleshooting
 
 Here are some commands for troubleshooting:
 
