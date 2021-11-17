@@ -6,7 +6,7 @@ Vertica is columnar MPP analytic database, separation computing from storage of 
 
 ![Vertica CRD and Operator](https://www.vertica.com/docs/latest/HTML/Content/Resources/Images/Containers/K8sClusterOperator.png)
 
-## Install Minio on k8s
+## Install Minio on k8s optionally
 
 Vertica Eon mode prefer S3-compatible object storage as its communal storage. Here we leverage Minio. You can skip this chapter If there is S3-compatible object storage service to use directly.
 
@@ -144,7 +144,7 @@ MC cat verticas3/test/test.csv | wc -l
 # 1000
 ```
 
-## Install Vertica on k8s
+## Setup Vertica on k8s
 
 ### Step 1: Install Vertica
 
@@ -271,10 +271,12 @@ for in in $(seq 1 9) ; do  VSQL -Aqt -c "select local_node_name()" ; done | sort
 # 4 v_testdb_node0003
 ```
 
-### Step 3: Add a secondary subcluster 
+## Scale Vertica horizontally
+
+### Add a secondary subcluster
 
 ```BASH
-# Add another subcluster and expose service to LoadBalancer, replace "$(minikube ip)" with your real address of LoadBalancer 
+# add another subcluster and expose service to LoadBalancer, replace "$(minikube ip)" with your real address of LoadBalancer 
 kubectl patch verticadbs.vertica.com testdb  --type=merge -p '{"spec": {"subclusters": [{"name": "primarysubcluster", "isPrimary": true, "size": 3, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5433}, {"name": "secondarysubcluster", "isPrimary": false, "size": 3, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5435}]}}'
 
 # connect to database, replace "$(minikube ip)" with your real address of LoadBalancer
@@ -285,7 +287,7 @@ for in in $(seq 1 9) ; do  VSQL2 -Aqt -c "select local_node_name()" ; done | sor
 # 2 v_testdb_node0006
 ```
 
-### Step 4: Add more nodes to the secondary subcluster 
+### Add more nodes to the secondary subcluster 
 
 ```BASH
 # connect to database, replace "$(minikube ip)" with your real address of LoadBalancer
@@ -295,26 +297,61 @@ alias VSQL2="vsql -h $(minikube ip) -U dbadmin -w vertica -p 5435"
 VSQL2 -Aqtc "select listagg(distinct node_name) from(select node_name from session_subscriptions where is_participating order by 1) t"
 # v_testdb_node0004,v_testdb_node0005,v_testdb_node0006
 
-# Add one more node to the secondary subcluster 
+# add one more node to the secondary subcluster 
 kubectl patch verticadbs.vertica.com testdb  --type=merge -p '{"spec": {"subclusters": [{"name": "primarysubcluster", "isPrimary": true, "size": 3, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5433}, {"name": "secondarysubcluster", "isPrimary": false, "size": 4, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5435}]}}'
 
-# there are 6 nodes participating at now
+# there are 4 nodes participating at now
 VSQL2 -Aqtc "select listagg(distinct node_name) from(select node_name from session_subscriptions where is_participating order by 1) t"
 # v_testdb_node0004,v_testdb_node0005,v_testdb_node0006,v_testdb_node0007
 ```
 
-### Step 5: Terminate Database 
+### Remove nodes from the secondary subcluster 
+
+```BASH
+# connect to database, replace "$(minikube ip)" with your real address of LoadBalancer
+alias VSQL2="vsql -h $(minikube ip) -U dbadmin -w vertica -p 5435"
+
+# there are 4 nodes participating at now
+VSQL2 -Aqtc "select listagg(distinct node_name) from(select node_name from session_subscriptions where is_participating order by 1) t"
+# v_testdb_node0004,v_testdb_node0005,v_testdb_node0006,v_testdb_node0007
+
+# remove one more node from the secondary subcluster 
+kubectl patch verticadbs.vertica.com testdb  --type=merge -p '{"spec": {"subclusters": [{"name": "primarysubcluster", "isPrimary": true, "size": 3, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5433}, {"name": "secondarysubcluster", "isPrimary": false, "size": 3, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5435}]}}'
+
+# there are 3 nodes participating at now
+VSQL2 -Aqtc "select listagg(distinct node_name) from(select node_name from session_subscriptions where is_participating order by 1) t"
+# v_testdb_node0004,v_testdb_node0005,v_testdb_node0006
+```
+
+### Remove the secondary subcluster
+
+```BASH
+# connect to database, replace "$(minikube ip)" with your real address of LoadBalancer
+alias VSQL="vsql -h $(minikube ip) -U dbadmin -w vertica"
+
+# there are 2 subclusters at now
+VSQL -Aqtc "select listagg(distinct subcluster_name) from(select subcluster_name from subclusters order by 1) t"
+# primarysubcluster,secondarysubcluster
+
+# remove the secondary subcluster 
+kubectl patch verticadbs.vertica.com testdb  --type=merge -p '{"spec": {"subclusters": [{"name": "primarysubcluster", "isPrimary": true, "size": 3, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5433}]}}'
+
+# there is one 1 subcluster at now
+VSQL -Aqtc "select listagg(distinct subcluster_name) from(select subcluster_name from subclusters order by 1) t"
+# primarysubcluster
+```
+## Terminate and Revive Vertica
+### Terminate Database 
 
 ```BASH
 # sync database to communal storage
 VSQL -Aqtc "select sync_catalog()"
 
-# destry cluster
-kubectl delete verticadbs.vertica.com testdb 
-for pvc in $(kubectl get persistentvolumeclaims --selector=vertica.com/database=testdb -o jsonpath="{.items[*].metadata.name}"); do kubectl delete persistentvolumeclaims ${pvc} ; done
+# terminate Vertica cluster
+kubectl delete verticadbs.vertica.com testdb && pvc in $(kubectl get persistentvolumeclaims --selector=vertica.com/database=testdb -o jsonpath="{.items[*].metadata.name}"); do kubectl delete persistentvolumeclaims ${pvc} ; done
 ```
 
-### Step 6: Revive Database
+### Revive Database
 
 Note:  properties "**initPolicy**" is "***Revive***" here. Please replace "$(minikube ip)" with your real address of LoadBalancer.
 
