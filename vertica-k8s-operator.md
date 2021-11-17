@@ -249,13 +249,6 @@ spec:
     name: primarysubcluster
     size: 3
     serviceType: ClusterIP
-    resources:
-      limits:
-        cpu: 1
-        memory: 1Gi
-      requests:
-        cpu: 1
-        memory: 1Gi
 EOF
 )
 
@@ -282,7 +275,7 @@ for in in $(seq 1 9) ; do  VSQL -Aqt -c "select local_node_name()" ; done | sort
 
 ```BASH
 # Add another subcluster and expose service to LoadBalancer, replace "$(minikube ip)" with your real address of LoadBalancer 
-kubectl patch verticadbs.vertica.com testdb  --type=merge -p '{"spec": {"subclusters": [{"name": "primarysubcluster", "isPrimary": true, "size": 3, "resources": {"limits": {"cpu": 1, "memory": "1Gi"}, "requests": {"cpu": 1, "memory": "1Gi"}}, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5433}, {"name": "secondarysubcluster", "isPrimary": false, "size": 3, "resources": {"limits": {"cpu": 1, "memory": "1Gi"}, "requests": {"cpu": 1, "memory": "1Gi"}}, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5435}]}}'
+kubectl patch verticadbs.vertica.com testdb  --type=merge -p '{"spec": {"subclusters": [{"name": "primarysubcluster", "isPrimary": true, "size": 3, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5433}, {"name": "secondarysubcluster", "isPrimary": false, "size": 3, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5435}]}}'
 
 # connect to database, replace "$(minikube ip)" with your real address of LoadBalancer
 alias VSQL2="vsql -h $(minikube ip) -U dbadmin -w vertica -p 5435"
@@ -303,7 +296,7 @@ VSQL2 -Aqtc "select listagg(distinct node_name) from(select node_name from sessi
 # v_testdb_node0004,v_testdb_node0005,v_testdb_node0006
 
 # Add one more node to the secondary subcluster 
-kubectl patch verticadbs.vertica.com testdb  --type=merge -p '{"spec": {"subclusters": [{"name": "primarysubcluster", "isPrimary": true, "size": 3, "resources": {"limits": {"cpu": 1, "memory": "1Gi"}, "requests": {"cpu": 1, "memory": "1Gi"}}, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5433}, {"name": "secondarysubcluster", "isPrimary": false, "size": 4, "resources": {"limits": {"cpu": 1, "memory": "1Gi"}, "requests": {"cpu": 1, "memory": "1Gi"}}, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5435}]}}'
+kubectl patch verticadbs.vertica.com testdb  --type=merge -p '{"spec": {"subclusters": [{"name": "primarysubcluster", "isPrimary": true, "size": 3, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5433}, {"name": "secondarysubcluster", "isPrimary": false, "size": 4, "serviceType": "LoadBalancer", "externalIPs":["'$(minikube ip)'"], "nodePort": 5435}]}}'
 
 # there are 6 nodes participating at now
 VSQL2 -Aqtc "select listagg(distinct node_name) from(select node_name from session_subscriptions where is_participating order by 1) t"
@@ -356,13 +349,6 @@ spec:
     externalIPs:
     - $(minikube ip)
     nodePort: 5433
-    resources:
-      limits:
-        cpu: 1
-        memory: 1Gi
-      requests:
-        cpu: 1
-        memory: 1Gi
 EOF
 )
 ```
@@ -380,7 +366,9 @@ VSQL -c "copy test from 's3://test/test.csv'"
 VSQL -Aqtc "select count(*) from test"
 # 1000
 
-VSQL -c "create external table test_ext(id int) as copy test from 's3://test/test.csv'"
+VSQL -c "export to parquet(directory='s3://test/test.parquet') as select * from test"
+
+VSQL -c "create external table test_ext(id int) as copy from 's3://test/test.parquet/*' parquet"
 VSQL -Aqtc "select count(*) from test_ext"
 # 1000
 ```
