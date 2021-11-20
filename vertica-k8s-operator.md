@@ -19,7 +19,7 @@ Prerequisites:
 ```BASH
 export CLUSTERNAME=vertica
 # create k8s cluster. Here we test on minikube, optional parameters --image-* just for better experience in China mainland.
-#minikube start -p ${CLUSTERNAME} --driver=docker --nodes=1 --cpus=max --extra-config=apiserver.service-node-port-range=1-65535 # --image-mirror-country='cn' --image-repository='registry.cn-hangzhou.aliyuncs.com/google_containers' 
+#minikube start -p ${CLUSTERNAME} --driver=docker --nodes=1 --extra-config=apiserver.service-node-port-range=1-65535 # --image-mirror-country='cn' --image-repository='registry.cn-hangzhou.aliyuncs.com/google_containers' 
 
 kubectl get pod kube-controller-manager-${CLUSTERNAME} -n kube-system -o yaml | grep 'cluster-signing-cert-file\|cluster-signing-key-file' || echo 'The Operator cannot complete initialization if the Kubernetes cluster is not configured to respond to a generated CSR. Certain Kubernetes providers do not specify these configuration values by default.'
 ```
