@@ -390,6 +390,23 @@ EOF
 )
 ```
 
+## Upgrade Database
+
+Upgrading a Vertica database can be achieved by just a single kubectl patch command.
+
+```BASH
+# connect to database, replace "$(minikube ip)" with your real address of LoadBalancer
+alias VSQL="vsql -h $(minikube ip) -U dbadmin -w vertica"
+
+VSQL -Aqtc "select version()"
+# Vertica Analytic Database v11.0.1-0
+
+kubectl patch verticadbs.vertica.com testdb --type=merge -p '{"spec": {"image": "vertica/vertica-k8s:11.0.1-2"}}'
+
+VSQL -Aqtc "select version()"
+# Vertica Analytic Database v11.0.1-2
+```
+
 ## Play with Your Database
 
 You can connect your database through subcluster service name in k8s cluster, or through loadbalancer in world out of k8s.
