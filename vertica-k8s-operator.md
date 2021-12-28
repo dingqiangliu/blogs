@@ -348,7 +348,7 @@ VSQL -Aqtc "select listagg(distinct subcluster_name) from(select subcluster_name
 VSQL -Aqtc "select sync_catalog()"
 
 # terminate Vertica cluster
-kubectl delete verticadbs.vertica.com testdb && pvc in $(kubectl get persistentvolumeclaims --selector=vertica.com/database=testdb -o jsonpath="{.items[*].metadata.name}"); do kubectl delete persistentvolumeclaims ${pvc} ; done
+kubectl delete verticadbs.vertica.com testdb && for pvc in $(kubectl get persistentvolumeclaims --selector=vertica.com/database=testdb -o jsonpath="{.items[*].metadata.name}"); do kubectl delete persistentvolumeclaims ${pvc} ; done
 ```
 
 ### Revive Database
